@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>수학 학습 대시보드 · 부모용</title>
+
+<!-- Firebase SDK -->
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+  import { getFirestore, doc, getDoc, collection, getDocs, orderBy, query, limit }
+    from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyB_jVzXZwQp8iNkzWrqXzQOdVYhFTAdPVY",
+    authDomain: "math-tutor-cfcdd.firebaseapp.com",
+    projectId: "math-tutor-cfcdd",
+    storageBucket: "math-tutor-cfcdd.firebasestorage.app",
+    messagingSenderId: "308873539957",
+    appId: "1:308873539957:web:f06a2e95b58e5990fbe33c"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db  = getFirestore(app);
+  const STUDENT_ID = 'student_01';
+
+  async function loadDashboard() {
+    try {
+      // 학생 데이터 불러오기
+      const snap = await getDoc(doc(db, 'students', STUDENT_ID));
+      if (!snap.exists()) {
+        document.getElementById('loading').innerHTML =
+          '<p style="color:#8891aa;text-align:center;padding:40px">아직 학습 데이터가 없어요.<br>딸이 앱을 사용하면 여기에 나타나요! 😊</p>';
+        return;
+      }
+      const d = snap.data();
+
+      // 오답 로그 불러오기
+      const wrongSnap = await getDocs(
+        query(collection(db,'students',STUDENT_ID,'wrongLogs'), orderBy('createdAt','desc'), limit(20))
+      );
+      const wrongLogs = wrongSnap.docs.map(d => d.data());
+
+      renderDashboard(d, wrongLogs);
+    } catch(e) {
+      document.getElementById('loading').innerHTML =
+        `<p style="color:#ff6b6b;text-align:center;padding:40px">불러오기 실패: ${e.message}<br>잠시 후 새로고침 해주세요.</p>`;
+    }
+  }
+
+  window.loadDashboard = loadDashboard;
+</script>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;600;700&family=DM+Mono:wght@400;500&display=swap');
+
+:root {
+  --bg: #0d0f14;
+  --surface: #151820;
+  --surface2: #1c2030;
+  --border2: #2e3548;
+  --primary: #6c8fff;
+  --primary-dim: #3d5acc;
+  --gold: #f5c842;
+  --red: #ff6b6b;
+  --green: #4ecb8d;
+  --text: #e8eaf0;
+  --text2: #8891aa;
+  --text3: #4a5068;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Noto Serif KR', serif;
+  background: var(--bg); color: var(--text);
+  min-height: 100vh; padding: 24px 20px;
+  background-image:
+    radial-gradient(ellipse at 10% 0%, rgba(108,143,255,0.07) 0%, transparent 50%),
+    radial-gradient(ellipse at 90% 100%, rgba(78,203,141,0.05) 0%, transparent 50%);
+}
+.wrap { max-width: 860px; margin: 0 auto; }
+
+/* HEADER */
+.dash-header {
+  display: flex; align-items: center; gap: 14px; margin-bottom: 28px;
+}
+.dash-logo {
+  width: 44px; height: 44px;
+  background: linear-gradient(135deg, #3d5acc, #6c8fff);
+  border-radius: 13px; display: flex; align-items: center; justify-content: center;
+  font-size: 21px; box-shadow: 0 0 20px rgba(108,143,255,0.28);
+}
+.dash-title h1 { font-size: 18px; font-weight: 700; }
+.dash-title p { font-size: 11px; color: var(--text2); margin-top: 2px; font-family: 'DM Mono', monospace; }
+.refresh-btn {
+  margin-left: auto;
+  background: var(--surface); border: 1px solid var(--border2);
+  color: var(--text2); border-radius: 9px; padding: 7px 16px;
+  font-size: 12px; cursor: pointer; font-family: 'Noto Serif KR', serif;
+  transition: all 0.18s;
+}
+.refresh-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+/* STAT CARDS */
+.stat-row { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+.stat-card {
+  flex: 1; min-width: 120px;
+  background: var(--surface); border: 1px solid var(--border2);
+  border-radius: 14px; padding: 16px 18px;
+}
+.stat-card .val {
+  font-family: 'DM Mono', monospace; font-size: 28px; font-weight: 500; line-height: 1;
+}
+.stat-card .lbl { font-size: 11px; color: var(--text2); margin-top: 6px; }
+.val.c { color: var(--green); } .val.w { color: var(--red); }
+.val.g { color: var(--gold); } .val.p { color: var(--primary); }
+
+/* SECTION */
+.section {
+  background: var(--surface); border: 1px solid var(--border2);
+  border-radius: 14px; padding: 18px 20px; margin-bottom: 14px;
+}
+.section h2 {
+  font-size: 13px; color: var(--text2); letter-spacing: 0.8px;
+  font-family: 'DM Mono', monospace; margin-bottom: 14px;
+}
+
+/* LESSON STATS */
+.lesson-grid { display: flex; flex-direction: column; gap: 8px; }
+.lesson-row {
+  display: flex; align-items: center; gap: 10px;
+}
+.lesson-row .l-name { font-size: 12px; color: var(--text2); width: 160px; flex-shrink: 0; }
+.bar-wrap { flex: 1; height: 8px; background: var(--surface2); border-radius: 4px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
+.bar-fill.good { background: var(--green); }
+.bar-fill.bad { background: var(--red); }
+.bar-fill.mid { background: var(--gold); }
+.lesson-row .l-nums {
+  font-size: 10px; font-family: 'DM Mono', monospace;
+  color: var(--text3); width: 60px; text-align: right; flex-shrink: 0;
+}
+
+/* WRONG NOTE */
+.wrong-list { display: flex; flex-direction: column; gap: 6px; }
+.wrong-item {
+  display: flex; align-items: flex-start; gap: 8px;
+  background: var(--surface2); border-radius: 8px; padding: 10px 12px;
+  border: 1px solid rgba(255,107,107,0.15);
+}
+.wi-tag {
+  font-size: 9px; background: rgba(245,200,66,0.1); color: var(--gold);
+  border-radius: 3px; padding: 2px 6px; font-family: 'DM Mono', monospace;
+  flex-shrink: 0; margin-top: 2px;
+}
+.wi-body { flex: 1; }
+.wi-text { font-size: 12px; color: var(--text2); line-height: 1.4; }
+.wi-meta { font-size: 10px; color: var(--text3); margin-top: 3px; }
+
+/* WEAK ALERT */
+.weak-alert {
+  background: rgba(255,107,107,0.07); border: 1px solid rgba(255,107,107,0.2);
+  border-radius: 10px; padding: 14px 16px; margin-bottom: 14px;
+  display: none;
+}
+.weak-alert.visible { display: block; }
+.weak-alert h3 { font-size: 13px; color: var(--red); margin-bottom: 6px; }
+.weak-alert p { font-size: 12px; color: var(--text2); line-height: 1.7; }
+
+/* EMPTY */
+.empty { font-size: 12px; color: var(--text3); text-align: center; padding: 16px 0; font-family: 'DM Mono', monospace; }
+
+/* LOADING */
+#loading { text-align: center; padding: 60px 20px; color: var(--text2); font-size: 14px; }
+#dashboard { display: none; }
+#dashboard.visible { display: block; }
+
+/* UPDATE TIME */
+.update-time { font-size: 10px; color: var(--text3); font-family: 'DM Mono', monospace; text-align: right; margin-top: 12px; }
+
+@media(max-width:500px){
+  .stat-card .val { font-size: 22px; }
+  .lesson-row .l-name { width: 110px; font-size: 11px; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="dash-header">
+    <div class="dash-logo">📊</div>
+    <div class="dash-title">
+      <h1>학습 대시보드</h1>
+      <p>PARENT REPORT · math-tutor</p>
+    </div>
+    <button class="refresh-btn" onclick="refresh()">🔄 새로고침</button>
+  </div>
+
+  <div id="loading">📡 학습 데이터를 불러오는 중...</div>
+
+  <div id="dashboard">
+    <!-- 약점 알림 -->
+    <div class="weak-alert" id="weakAlert">
+      <h3>⚠️ 집중 관리 필요 단원</h3>
+      <p id="weakAlertText"></p>
+    </div>
+
+    <!-- 통계 카드 -->
+    <div class="stat-row">
+      <div class="stat-card"><div class="val c" id="dCorrect">0</div><div class="lbl">✅ 총 맞은 문제</div></div>
+      <div class="stat-card"><div class="val w" id="dWrong">0</div><div class="lbl">❌ 총 틀린 문제</div></div>
+      <div class="stat-card"><div class="val g" id="dRate">0%</div><div class="lbl">🎯 정답률</div></div>
+      <div class="stat-card"><div class="val p" id="dDays">0일</div><div class="lbl">📅 누적 공부일</div></div>
+    </div>
+
+    <!-- 단원별 진도 -->
+    <div class="section">
+      <h2>📐 단원별 학습 현황</h2>
+      <div class="lesson-grid" id="lessonGrid"></div>
+    </div>
+
+    <!-- 오답노트 -->
+    <div class="section">
+      <h2>📒 오답 목록 (최근 순)</h2>
+      <div class="wrong-list" id="wrongList"></div>
+    </div>
+
+    <div class="update-time" id="updateTime"></div>
+  </div>
+
+</div>
+
+<script>
+const CURRICULUM = [
+  { id:'s1', name:'문자와 식', lessons:[
+    {id:'l1a',name:'문자와 식의 이해'},{id:'l1b',name:'일차방정식'},
+    {id:'l1c',name:'연립방정식'},{id:'l1d',name:'부등식'},
+  ]},
+  { id:'s2', name:'함수', lessons:[
+    {id:'l2a',name:'함수의 개념'},{id:'l2b',name:'일차함수와 그래프'},
+    {id:'l2c',name:'이차함수 기초'},{id:'l2d',name:'이차함수 활용'},
+  ]},
+  { id:'s3', name:'확률과 통계', lessons:[
+    {id:'l3a',name:'경우의 수'},{id:'l3b',name:'확률의 뜻과 계산'},
+    {id:'l3c',name:'통계와 대푯값'},
+  ]},
+  { id:'s4', name:'고1 연계', lessons:[
+    {id:'l4a',name:'다항식과 인수분해'},{id:'l4b',name:'이차방정식·판별식'},
+    {id:'l4c',name:'이차함수 심화'},{id:'l4d',name:'확률·통계 고1'},
+  ]},
+];
+
+const eL = {A:'개념모름', B:'적용오류', C:'계산실수', D:'문제이해오류'};
+
+function renderDashboard(d, wrongLogs) {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('dashboard').classList.add('visible');
+
+  const correct = d.correct||0, wrong = d.wrong||0;
+  const total = correct+wrong;
+  const rate = total>0 ? Math.round(correct/total*100) : 0;
+
+  document.getElementById('dCorrect').textContent = correct;
+  document.getElementById('dWrong').textContent = wrong;
+  document.getElementById('dRate').textContent = rate+'%';
+  document.getElementById('dDays').textContent = (d.totalDays||0)+'일';
+
+  // 업데이트 시간
+  if(d.updatedAt?.toDate) {
+    const t = d.updatedAt.toDate();
+    document.getElementById('updateTime').textContent =
+      `마지막 업데이트: ${t.toLocaleDateString('ko-KR')} ${t.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})}`;
+  }
+
+  // 단원별 현황
+  const stats = d.lessonStats||{};
+  const grid = document.getElementById('lessonGrid');
+  grid.innerHTML = '';
+  let weakTopics = [];
+
+  CURRICULUM.forEach(stage => {
+    stage.lessons.forEach(lesson => {
+      const st = stats[lesson.id]||{correct:0,wrong:0};
+      const tot = st.correct+st.wrong;
+      if(tot===0) return;
+      const r = Math.round(st.correct/tot*100);
+      const cls = r>=70?'good':r>=40?'mid':'bad';
+      if(r<40 && tot>=2) weakTopics.push({name:`${stage.name} > ${lesson.name}`, rate:r, wrong:st.wrong});
+      grid.innerHTML += `
+        <div class="lesson-row">
+          <div class="l-name">${lesson.name}</div>
+          <div class="bar-wrap"><div class="bar-fill ${cls}" style="width:${r}%"></div></div>
+          <div class="l-nums">${st.correct}✓ ${st.wrong}✗</div>
+        </div>`;
+    });
+  });
+  if(grid.innerHTML==='') grid.innerHTML='<div class="empty">아직 문제를 풀지 않았어요</div>';
+
+  // 약점 알림
+  if(weakTopics.length>0) {
+    const alert = document.getElementById('weakAlert');
+    alert.classList.add('visible');
+    document.getElementById('weakAlertText').textContent =
+      `정답률 40% 미만 단원: ${weakTopics.map(w=>`${w.name}(${w.rate}%)`).join(', ')}\n집중 복습이 필요해요!`;
+  }
+
+  // 오답 목록
+  const wrongList = document.getElementById('wrongList');
+  const allWrong = d.wrongNote||[];
+  if(allWrong.length===0 && wrongLogs.length===0) {
+    wrongList.innerHTML='<div class="empty">아직 오답이 없어요 🎉</div>';
+  } else {
+    const items = allWrong.slice().reverse().slice(0,15);
+    wrongList.innerHTML = items.map(w=>`
+      <div class="wrong-item">
+        <div class="wi-tag">${w.topic||'-'}</div>
+        <div class="wi-body">
+          <div class="wi-text">${w.question||'-'}</div>
+          <div class="wi-meta">🌱 ${w.root||'-'} · 유형: ${eL[w.error]||w.error||'-'}</div>
+        </div>
+      </div>`).join('');
+  }
+}
+
+async function refresh() {
+  document.getElementById('loading').style.display='block';
+  document.getElementById('loading').innerHTML='📡 새로고침 중...';
+  document.getElementById('dashboard').classList.remove('visible');
+  await window.loadDashboard();
+}
+
+// 페이지 로드 시 자동 실행
+window.addEventListener('load', ()=>{
+  // Firebase 모듈 로딩 대기
+  setTimeout(()=>{ if(window.loadDashboard) window.loadDashboard(); }, 800);
+});
+</script>
+</body>
+</html>

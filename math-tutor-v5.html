@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>수학 과외 선생님</title>
+<!-- Firebase SDK -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getFirestore, doc, setDoc, getDoc, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+  const firebaseConfig = {
+    apiKey: "AIzaSyB_jVzXZwQp8iNkzWrqXzQOdVYhFTAdPVY",
+    authDomain: "math-tutor-cfcdd.firebaseapp.com",
+    projectId: "math-tutor-cfcdd",
+    storageBucket: "math-tutor-cfcdd.firebasestorage.app",
+    messagingSenderId: "308873539957",
+    appId: "1:308873539957:web:f06a2e95b58e5990fbe33c"
+  };
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const STUDENT_ID = "student_01";
+  window.fbSave = async function(data) {
+    try { await setDoc(doc(db,"students",STUDENT_ID), {...data, updatedAt:serverTimestamp()}, {merge:true}); }
+    catch(e) { console.warn("FB저장실패:",e); }
+  };
+  window.fbLoad = async function() {
+    try { const s=await getDoc(doc(db,"students",STUDENT_ID)); return s.exists()?s.data():null; }
+    catch(e) { console.warn("FB불러오기실패:",e); return null; }
+  };
+  window.fbLogWrong = async function(w) {
+    try { await addDoc(collection(db,"students",STUDENT_ID,"wrongLogs"), {...w, createdAt:serverTimestamp()}); }
+    catch(e) { console.warn("오답로그실패:",e); }
+  };
+  window.fbReady = true;
+</script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;600;700&family=DM+Mono:wght@400;500&display=swap');
+
+:root {
+  --bg: #0d0f14;
+  --surface: #151820;
+  --surface2: #1c2030;
+  --border: #252a3a;
+  --border2: #2e3548;
+  --primary: #6c8fff;
+  --primary-dim: #3d5acc;
+  --gold: #f5c842;
+  --gold-dim: #a88a20;
+  --red: #ff6b6b;
+  --green: #4ecb8d;
+  --green-dim: #1a4a35;
+  --text: #e8eaf0;
+  --text2: #8891aa;
+  --text3: #4a5068;
+  --bubble-ai: #181c28;
+  --bubble-user: #1e2a4a;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Noto Serif KR', serif;
+  background: var(--bg); color: var(--text);
+  min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+  background-image:
+    radial-gradient(ellipse at 15% 0%, rgba(108,143,255,0.07) 0%, transparent 55%),
+    radial-gradient(ellipse at 85% 100%, rgba(78,203,141,0.05) 0%, transparent 55%);
+}
+
+/* HEADER */
+header {
+  width:100%; max-width:860px;
+  padding:20px 20px 0;
+  display:flex; align-items:center; gap:12px;
+}
+.logo {
+  width:40px; height:40px;
+  background:linear-gradient(135deg,var(--primary-dim),var(--primary));
+  border-radius:12px; display:flex; align-items:center; justify-content:center;
+  font-size:19px; box-shadow:0 0 18px rgba(108,143,255,0.28); flex-shrink:0;
+}
+.header-text h1 { font-size:16px; font-weight:700; }
+.header-text p { font-size:10px; color:var(--text2); margin-top:2px; font-family:'DM Mono',monospace; }
+.score-panel { margin-left:auto; display:flex; gap:14px; }
+.score-item { text-align:center; }
+.score-item .val { font-family:'DM Mono',monospace; font-size:16px; font-weight:500; line-height:1; }
+.val.c{color:var(--green);} .val.w{color:var(--red);} .val.s{color:var(--gold);}
+.score-item .lbl { font-size:9px; color:var(--text3); margin-top:3px; letter-spacing:0.4px; }
+
+/* TABS */
+.tabs {
+  width:100%; max-width:860px;
+  padding:14px 20px 0; display:flex; gap:6px; flex-wrap:wrap;
+}
+.tab {
+  padding:6px 13px; border-radius:7px;
+  border:1px solid var(--border2); background:var(--surface);
+  color:var(--text2); font-size:11px; cursor:pointer;
+  font-family:'Noto Serif KR',serif; transition:all 0.18s;
+}
+.tab:hover { border-color:var(--primary); color:var(--primary); }
+.tab.active { background:var(--primary-dim); border-color:var(--primary); color:white; }
+.tab.gold:hover { border-color:var(--gold); color:var(--gold); }
+.tab.gold.active { background:var(--gold-dim); border-color:var(--gold); color:white; }
+
+/* WRONG PANEL */
+.wrong-panel { display:none; width:100%; max-width:860px; padding:10px 20px 0; }
+.wrong-panel.visible { display:block; }
+.wrong-panel-inner {
+  background:var(--surface); border:1px solid var(--border2);
+  border-radius:12px; padding:14px 16px;
+}
+.wrong-panel-inner h3 { font-size:11px; color:var(--gold); letter-spacing:1px; margin-bottom:10px; font-family:'DM Mono',monospace; }
+.wrong-list { display:flex; flex-direction:column; gap:5px; max-height:140px; overflow-y:auto; }
+.wrong-item {
+  display:flex; align-items:flex-start; gap:8px;
+  background:var(--surface2); border-radius:7px; padding:8px 10px;
+  border:1px solid var(--border); cursor:pointer; transition:border-color 0.18s;
+}
+.wrong-item:hover { border-color:var(--gold); }
+.wi-tag { font-size:9px; background:rgba(245,200,66,0.1); color:var(--gold); border-radius:3px; padding:2px 6px; font-family:'DM Mono',monospace; flex-shrink:0; margin-top:2px; }
+.wi-text { font-size:11px; color:var(--text2); flex:1; line-height:1.4; }
+.wi-type { font-size:9px; color:var(--red); margin-top:2px; }
+.wi-retry { font-size:10px; color:var(--primary); align-self:center; opacity:0.6; }
+.wrong-item:hover .wi-retry { opacity:1; }
+.empty-wrong { font-size:11px; color:var(--text3); text-align:center; padding:10px; font-family:'DM Mono',monospace; }
+
+/* LAYOUT */
+.layout {
+  width:100%; max-width:860px;
+  display:flex; gap:12px;
+  padding:12px 20px 0; flex:1;
+}
+
+/* SIDEBAR */
+.sidebar {
+  width:210px; flex-shrink:0;
+  display:flex; flex-direction:column; gap:6px;
+  max-height:500px; overflow-y:auto;
+}
+.sidebar::-webkit-scrollbar { width:3px; }
+.sidebar::-webkit-scrollbar-thumb { background:var(--border2); border-radius:3px; }
+
+.stage {
+  background:var(--surface); border:1px solid var(--border2);
+  border-radius:11px; overflow:hidden;
+}
+.stage-hd {
+  padding:9px 12px; display:flex; align-items:center; gap:7px;
+  cursor:pointer; transition:background 0.15s; user-select:none;
+}
+.stage-hd:hover { background:var(--surface2); }
+.stage-emoji { font-size:14px; flex-shrink:0; }
+.stage-info { flex:1; min-width:0; }
+.stage-name { font-size:11px; font-weight:600; color:var(--text); }
+.stage-sub { font-size:9px; color:var(--text3); margin-top:1px; font-family:'DM Mono',monospace; }
+.stage-chevron { font-size:10px; color:var(--text3); transition:transform 0.2s; }
+.stage.open .stage-chevron { transform:rotate(90deg); }
+
+.stage-bar-wrap { height:2px; background:var(--border); margin:0 12px 8px; border-radius:2px; }
+.stage-bar { height:100%; border-radius:2px; background:var(--primary); transition:width 0.5s ease; }
+.stage-bar.done { background:var(--green); }
+
+.lessons { display:none; padding:0 8px 8px; flex-direction:column; gap:3px; }
+.stage.open .lessons { display:flex; }
+
+.lesson {
+  display:flex; align-items:center; gap:7px;
+  padding:6px 8px; border-radius:7px; cursor:pointer;
+  border:1px solid transparent; transition:all 0.15s;
+}
+.lesson:hover { background:var(--surface2); border-color:var(--border2); }
+.lesson.active { background:rgba(108,143,255,0.1); border-color:rgba(108,143,255,0.3); }
+.lesson.recommend { border-color:rgba(245,200,66,0.35); background:rgba(245,200,66,0.04); }
+
+.l-icon { font-size:11px; width:14px; text-align:center; flex-shrink:0; }
+.l-name { font-size:11px; color:var(--text2); flex:1; line-height:1.3; }
+.lesson.active .l-name { color:var(--primary); }
+.lesson.recommend .l-name { color:var(--gold); }
+.l-stat { font-size:9px; font-family:'DM Mono',monospace; color:var(--text3); flex-shrink:0; }
+.l-stat.good { color:var(--green); } .l-stat.bad { color:var(--red); }
+.rec-badge { font-size:8px; background:rgba(245,200,66,0.15); color:var(--gold); border-radius:3px; padding:1px 4px; font-family:'DM Mono',monospace; flex-shrink:0; }
+
+/* CHAT AREA */
+.chat-area { flex:1; display:flex; flex-direction:column; gap:8px; min-width:0; }
+
+.curr-bar {
+  background:var(--surface); border:1px solid var(--border2);
+  border-radius:9px; padding:7px 13px;
+  display:flex; align-items:center; gap:8px;
+}
+.cb-label { font-size:9px; color:var(--text3); font-family:'DM Mono',monospace; flex-shrink:0; }
+.cb-name { font-size:12px; color:var(--text); font-weight:600; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.cb-stat { font-size:9px; font-family:'DM Mono',monospace; color:var(--text3); flex-shrink:0; }
+.cb-free {
+  font-size:10px; color:var(--primary); cursor:pointer;
+  padding:2px 7px; border:1px solid rgba(108,143,255,0.3);
+  border-radius:5px; transition:all 0.15s; flex-shrink:0;
+}
+.cb-free:hover { background:rgba(108,143,255,0.1); }
+
+.chat-box {
+  background:var(--surface); border:1px solid var(--border2); border-radius:16px;
+  flex:1; min-height:350px; max-height:350px;
+  overflow-y:auto; padding:16px 14px;
+  display:flex; flex-direction:column; gap:13px; scroll-behavior:smooth;
+}
+.chat-box::-webkit-scrollbar { width:3px; }
+.chat-box::-webkit-scrollbar-thumb { background:var(--border2); border-radius:3px; }
+
+.msg-row { display:flex; gap:8px; align-items:flex-start; animation:fadeUp 0.25s ease both; }
+.msg-row.user { flex-direction:row-reverse; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(7px);}to{opacity:1;transform:translateY(0);} }
+
+.avatar {
+  width:29px; height:29px; border-radius:8px;
+  display:flex; align-items:center; justify-content:center;
+  font-size:13px; flex-shrink:0; margin-top:2px;
+}
+.avatar.ai { background:linear-gradient(135deg,var(--primary-dim),var(--primary)); box-shadow:0 0 10px rgba(108,143,255,0.2); }
+.avatar.user { background:var(--surface2); border:1px solid var(--border2); }
+
+.bubble {
+  max-width:82%; padding:10px 13px; border-radius:13px;
+  font-size:13px; line-height:1.8;
+}
+.bubble.ai { background:var(--bubble-ai); border:1px solid var(--border2); border-top-left-radius:3px; color:var(--text); }
+.bubble.user { background:var(--bubble-user); border:1px solid rgba(108,143,255,0.2); border-top-right-radius:3px; color:#c8d4ff; }
+.bubble strong { color:var(--primary); font-weight:600; }
+.bubble.user strong { color:#8fb3ff; }
+.bubble .formula { font-family:'DM Mono',monospace; font-size:14px; color:var(--primary); background:rgba(108,143,255,0.08); border-radius:5px; padding:1px 7px; display:inline-block; }
+.bubble .oclass { display:inline-block; background:rgba(255,107,107,0.12); color:var(--red); border-radius:4px; padding:1px 7px; font-size:11px; font-family:'DM Mono',monospace; border:1px solid rgba(255,107,107,0.2); }
+.bubble-img { max-width:180px; border-radius:8px; border:1px solid var(--border2); display:block; margin-bottom:6px; cursor:pointer; }
+
+.typing-row { display:flex; gap:8px; align-items:center; }
+.typing-bub { background:var(--bubble-ai); border:1px solid var(--border2); border-radius:13px; border-top-left-radius:3px; padding:11px 15px; display:flex; gap:4px; align-items:center; }
+.dot { width:5px; height:5px; background:var(--primary); border-radius:50%; opacity:0.6; animation:bounce 1.2s infinite; }
+.dot:nth-child(2){animation-delay:.2s} .dot:nth-child(3){animation-delay:.4s}
+@keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-5px)}}
+
+/* INPUT */
+.input-area { width:100%; max-width:860px; padding:8px 20px 20px; display:flex; flex-direction:column; gap:7px; }
+.quick-row { display:flex; gap:5px; flex-wrap:wrap; }
+.qbtn { background:var(--surface); border:1px solid var(--border2); border-radius:7px; padding:5px 10px; font-size:11px; color:var(--text2); cursor:pointer; font-family:'Noto Serif KR',serif; transition:all 0.15s; }
+.qbtn:hover { border-color:var(--primary); color:var(--primary); background:rgba(108,143,255,0.05); }
+.qbtn.red:hover { border-color:var(--red); color:var(--red); background:rgba(255,107,107,0.05); }
+.qbtn.gold:hover { border-color:var(--gold); color:var(--gold); background:rgba(245,200,66,0.05); }
+
+.img-preview-wrap { display:none; background:var(--surface2); border:1px solid var(--border2); border-radius:9px; padding:8px 12px; align-items:center; gap:8px; }
+.img-preview-wrap.visible { display:flex; }
+.img-preview-wrap img { height:50px; width:auto; max-width:90px; border-radius:6px; object-fit:cover; border:1px solid var(--border2); }
+.pi-name { font-size:11px; color:var(--text2); font-family:'DM Mono',monospace; }
+.pi-desc { font-size:10px; color:var(--text3); margin-top:2px; }
+.img-remove { font-size:15px; color:var(--text3); cursor:pointer; transition:color 0.15s; }
+.img-remove:hover { color:var(--red); }
+
+.input-row {
+  display:flex; gap:7px; background:var(--surface);
+  border:1.5px solid var(--border2); border-radius:12px; padding:7px 7px 7px 13px;
+  transition:border-color 0.2s;
+}
+.input-row:focus-within { border-color:var(--primary); box-shadow:0 0 0 3px rgba(108,143,255,0.07); }
+.img-btn { width:37px; height:37px; background:var(--surface2); border:1px solid var(--border2); border-radius:8px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:15px; color:var(--text2); transition:all 0.15s; flex-shrink:0; }
+.img-btn:hover { border-color:var(--gold); color:var(--gold); }
+.img-btn.has-img { border-color:var(--green); color:var(--green); }
+textarea { flex:1; border:none; outline:none; font-family:'Noto Serif KR',serif; font-size:13px; color:var(--text); background:transparent; resize:none; line-height:1.5; min-height:33px; max-height:110px; }
+textarea::placeholder { color:var(--text3); }
+.send-btn { width:37px; height:37px; background:var(--primary-dim); border:none; border-radius:8px; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:16px; color:white; transition:all 0.15s; flex-shrink:0; box-shadow:0 0 12px rgba(108,143,255,0.18); }
+.send-btn:hover { background:var(--primary); transform:translateY(-1px); }
+.send-btn:disabled { background:var(--border2); box-shadow:none; cursor:not-allowed; transform:none; }
+
+/* WELCOME */
+.welcome { display:flex; flex-direction:column; align-items:center; justify-content:center; flex:1; gap:8px; color:var(--text2); text-align:center; padding:20px; }
+.welcome .icon { font-size:36px; margin-bottom:4px; }
+.welcome .title { font-size:14px; color:var(--text); font-weight:600; }
+.welcome .sub { font-size:12px; line-height:1.9; }
+
+/* MOBILE */
+@media(max-width:620px){
+  .sidebar{display:none;}
+  .layout,.input-area,.tabs{padding-left:12px;padding-right:12px;}
+  header{padding:16px 12px 0;}
+  .wrong-panel{padding:10px 12px 0;}
+  .score-panel{gap:10px;}
+  .score-item .val{font-size:14px;}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">🔬</div>
+  <div class="header-text">
+    <h1>수학 과외 선생님</h1>
+    <p>중학 기초 → 고1 · 자유질문 + 커리큘럼</p>
+  </div>
+  <div class="score-panel">
+    <div class="score-item"><div class="val c" id="cntC">0</div><div class="lbl">맞음</div></div>
+    <div class="score-item"><div class="val w" id="cntW">0</div><div class="lbl">틀림</div></div>
+    <div class="score-item"><div class="val s" id="cntS">0</div><div class="lbl">연속</div></div>
+    <div class="score-item"><div class="val" id="cntDays" style="color:var(--primary)">0</div><div class="lbl">누적일</div></div>
+    <div class="score-item">
+      <div style="font-size:11px;color:var(--text3);cursor:pointer;padding:4px 8px;border:1px solid var(--border2);border-radius:6px;" onclick="clearData()" title="학습 기록 초기화">🗑️</div>
+      <div class="lbl">초기화</div>
+    </div>
+  </div>
+</header>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab(this,'chat')">💬 질문하기</button>
+  <button class="tab" onclick="switchTab(this,'problem')">✏️ 문제 풀기</button>
+  <button class="tab gold" onclick="switchTab(this,'wrongnote')">📒 오답노트</button>
+  <button class="tab" onclick="switchTab(this,'diagnose')">🔍 진단 테스트</button>
+</div>
+
+<div class="wrong-panel" id="wrongPanel">
+  <div class="wrong-panel-inner">
+    <h3>📒 MY WRONG NOTE</h3>
+    <div class="wrong-list" id="wrongList">
+      <div class="empty-wrong">아직 오답이 없어요. 문제를 풀어봐요!</div>
+    </div>
+  </div>
+</div>
+
+<div class="layout">
+  <div class="sidebar" id="sidebar"></div>
+
+  <div class="chat-area">
+    <div class="curr-bar">
+      <span class="cb-label">현재</span>
+      <span class="cb-name" id="currName">자유 질문 모드 — 뭐든지 물어봐!</span>
+      <span class="cb-stat" id="currStat"></span>
+      <span class="cb-free" onclick="setFreeMode()">🔓 자유모드</span>
+    </div>
+    <div class="chat-box" id="chatBox">
+      <div class="welcome" id="welcomeEl">
+        <div class="icon">🔬</div>
+        <div class="title">수학 과외 선생님이야, 반가워! 👋</div>
+        <div class="sub">
+          왼쪽 커리큘럼에서 단원 골라 공부하거나<br>
+          <strong style="color:var(--primary)">모르는 거 바로 물어봐도 돼.</strong><br>
+          📷 사진 찍어 올리면 풀이 분석도 해줄게!
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="input-area">
+  <div class="quick-row">
+    <button class="qbtn red" onclick="quickSend('이 문제 어디서 틀렸는지 오답 분석해줘')">🔴 오답 분석</button>
+    <button class="qbtn red" onclick="quickSend('오개념 뿌리가 뭔지 중학 개념부터 찾아줘')">🌱 뿌리 찾기</button>
+    <button class="qbtn gold" onclick="quickSend('같은 유형 문제 하나 더 내줘')">🔁 유형 반복</button>
+    <button class="qbtn" onclick="quickSend('힌트만 줘. 답은 말하지 마')">💡 힌트만</button>
+    <button class="qbtn" onclick="quickSend('개념부터 쉽게 다시 설명해줘')">📖 개념 설명</button>
+    <button class="qbtn" onclick="quickSend('연습문제 하나 내줘')">📝 연습문제</button>
+  </div>
+
+  <div class="img-preview-wrap" id="imgPreviewWrap">
+    <img id="imgPreviewEl" src="" alt="풀이 사진">
+    <div style="flex:1">
+      <div class="pi-name" id="imgFileName"></div>
+      <div class="pi-desc">📷 사진 첨부됨 · 전송하면 선생님이 분석해줘요</div>
+    </div>
+    <div class="img-remove" onclick="removeImage()">✕</div>
+  </div>
+
+  <div class="input-row">
+    <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleImg(event)">
+    <button class="img-btn" id="imgBtn" onclick="document.getElementById('fileInput').click()" title="풀이 사진 업로드">📷</button>
+    <textarea id="userInput"
+      placeholder="모르는 개념·틀린 문제 입력, 또는 📷 사진 올려봐! (Enter: 전송 · Shift+Enter: 줄바꿈)"
+      rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+    <button class="send-btn" id="sendBtn" onclick="sendMsg()">➤</button>
+  </div>
+</div>
+
+<script>
+// ══ CURRICULUM ══
+const CURRICULUM = [
+  { id:'s1', emoji:'📐', name:'문자와 식', sub:'중1~중2', lessons:[
+    { id:'l1a', name:'문자와 식의 이해', emoji:'📝' },
+    { id:'l1b', name:'일차방정식', emoji:'⚖️' },
+    { id:'l1c', name:'연립방정식', emoji:'🔗' },
+    { id:'l1d', name:'부등식', emoji:'↔️' },
+  ]},
+  { id:'s2', emoji:'📈', name:'함수', sub:'중2~중3', lessons:[
+    { id:'l2a', name:'함수의 개념', emoji:'🔄' },
+    { id:'l2b', name:'일차함수와 그래프', emoji:'📏' },
+    { id:'l2c', name:'이차함수 기초', emoji:'🎯' },
+    { id:'l2d', name:'이차함수 활용', emoji:'🚀' },
+  ]},
+  { id:'s3', emoji:'🎲', name:'확률과 통계', sub:'중2~중3', lessons:[
+    { id:'l3a', name:'경우의 수', emoji:'🔢' },
+    { id:'l3b', name:'확률의 뜻과 계산', emoji:'🎯' },
+    { id:'l3c', name:'통계와 대푯값', emoji:'📊' },
+  ]},
+  { id:'s4', emoji:'🏆', name:'고1 연계', sub:'고1', lessons:[
+    { id:'l4a', name:'다항식과 인수분해', emoji:'🧩' },
+    { id:'l4b', name:'이차방정식·판별식', emoji:'🔬' },
+    { id:'l4c', name:'이차함수 심화', emoji:'📉' },
+    { id:'l4d', name:'확률·통계 고1', emoji:'🎰' },
+  ]},
+];
+
+// ══ STATE ══
+let history=[], wrongNote=[], correct=0, wrong=0, streak=0;
+let currentLesson=null, pendingImage=null;
+let lessonStats={};
+let openStages=new Set(['s1']);
+let totalDays=0, lastStudyDate='';
+
+// ══ LOCALSTORAGE ══
+const SAVE_KEY='mathtutor_v3';
+
+function saveData(){
+  const data={
+    wrongNote, correct, wrong, streak, lessonStats,
+    currentLessonId: currentLesson?.id||null,
+    currentLessonStageName: currentLesson?.stageName||null,
+    currentLessonName: currentLesson?.name||null,
+    currentLessonEmoji: currentLesson?.emoji||null,
+    openStages:[...openStages],
+    totalDays, lastStudyDate,
+    savedAt:new Date().toISOString()
+  };
+  // localStorage 저장 (오프라인 백업)
+  try{ localStorage.setItem(SAVE_KEY,JSON.stringify(data)); }catch(e){}
+  // Firebase 저장 (클라우드 동기화)
+  if(window.fbSave) window.fbSave(data);
+}
+
+async function loadData(){
+  let d = null;
+  // Firebase에서 먼저 불러오기 시도
+  if(window.fbLoad){
+    try{ d = await window.fbLoad(); }catch(e){}
+  }
+  // Firebase 실패 시 localStorage 백업 사용
+  if(!d){
+    try{
+      const raw=localStorage.getItem(SAVE_KEY);
+      if(raw) d=JSON.parse(raw);
+    }catch(e){}
+  }
+  if(!d) return;
+  wrongNote=d.wrongNote||[];
+  correct=d.correct||0; wrong=d.wrong||0; streak=d.streak||0;
+  lessonStats=d.lessonStats||{};
+  openStages=new Set(d.openStages||['s1']);
+  totalDays=d.totalDays||0; lastStudyDate=d.lastStudyDate||'';
+  if(d.currentLessonId){
+    for(const stage of CURRICULUM){
+      const lesson=stage.lessons.find(l=>l.id===d.currentLessonId);
+      if(lesson){ currentLesson={...lesson,stageName:stage.name}; break; }
+    }
+  }
+  const today=new Date().toDateString();
+  if(lastStudyDate!==today){ totalDays++; lastStudyDate=today; saveData(); }
+}
+
+function clearData(){
+  if(confirm('모든 학습 기록을 초기화할까요?\n오답노트, 진도, 통계가 전부 삭제돼요.')){
+    localStorage.removeItem(SAVE_KEY);
+    if(window.fbSave) window.fbSave({wrongNote:[],correct:0,wrong:0,streak:0,lessonStats:{},totalDays:0,lastStudyDate:'',openStages:['s1']});
+    location.reload();
+  }
+}
+
+// ══ SYSTEM PROMPT ══
+function buildSystem(){
+  const ctx = currentLesson
+    ? `\n\n현재 학습 단원: ${currentLesson.stageName} > ${currentLesson.name}\n이 단원 중심으로 가르쳐줘. 단, 다른 질문도 친절하게 답해줘.`
+    : '\n\n현재 자유 질문 모드야. 뭘 물어봐도 친절하게 답해줘.';
+  return `너는 대치동 최상위 수학 전문 강사야. 학생은 고등학교 1학년이고 중학교 수학 기초가 부족해.
+특히 문자와 식(방정식·부등식), 함수(일차·이차함수), 확률과 통계 영역이 약해.${ctx}
+
+## 핵심 역할
+
+### 자유 질문 ("판별식이 뭐야?" 같은 질문)
+- 중학 기초 개념부터 연결해서 설명
+- 예: "판별식 설명 → 먼저 이차방정식이 뭔지부터"
+- 쉬운 예시로 개념 설명 후 확인 문제 1개
+
+### 오답 분석 (3단계 필수)
+1단계: "어떻게 풀었어?" 먼저 물어봐. 오개념 분류(A개념모름/B적용오류/C계산실수/D문제이해오류)
+2단계: [오개념 뿌리: 중X - 단원명] 형식으로 반드시 표시. 중학 개념 복습 → 고1 연결.
+3단계: 같은 유형 쉬운 문제 출제. 맞으면 난이도↑, 틀리면 1단계 반복.
+
+### 힌트 요청 시
+힌트1(방향만) → 힌트2(중간단계) → 힌트3(거의 답) 단계적으로. 바로 답 주지 마.
+
+### 사진 분석
+풀이 사진 → 풀이 과정 꼼꼼히 읽기 → 틀린 단계 짚기 → [오개념 뿌리: ...] 표시
+
+### 진단 테스트
+각 영역별 쉬움·보통·어려움 1문제씩, 순서대로 하나씩 출제.
+
+## 기록 태그 (응답 맨 끝 필수)
+틀릴 때: %%WRONG%%{"topic":"단원명","question":"문제요약","error":"A/B/C/D","root":"중X 단원"}%%END%%
+맞을 때: %%CORRECT%%
+
+## 말투
+친근하게 "너", "~야", "~해봐". 틀려도 격려. 맞으면 구체적 칭찬. 이모지 적당히. 답변 간결하게.`;
+}
+
+// ══ SIDEBAR ══
+function buildSidebar(){
+  const sb=document.getElementById('sidebar');
+  sb.innerHTML='';
+  CURRICULUM.forEach(stage=>{
+    const total=stage.lessons.length;
+    const done=stage.lessons.filter(l=>(lessonStats[l.id]?.correct||0)>=3).length;
+    const pct=total?Math.round(done/total*100):0;
+    const stageEl=document.createElement('div');
+    stageEl.className='stage'+(openStages.has(stage.id)?' open':'');
+    stageEl.innerHTML=`
+      <div class="stage-hd" onclick="toggleStage('${stage.id}')">
+        <span class="stage-emoji">${stage.emoji}</span>
+        <div class="stage-info">
+          <div class="stage-name">${stage.name}</div>
+          <div class="stage-sub">${stage.sub} · ${done}/${total}</div>
+        </div>
+        <span class="stage-chevron">›</span>
+      </div>
+      <div class="stage-bar-wrap">
+        <div class="stage-bar ${pct===100?'done':''}" style="width:${pct}%"></div>
+      </div>
+      <div class="lessons" id="ls-${stage.id}"></div>`;
+    sb.appendChild(stageEl);
+
+    const lessonsEl=stageEl.querySelector('.lessons');
+    stage.lessons.forEach((lesson,idx)=>{
+      const st=lessonStats[lesson.id]||{correct:0,wrong:0};
+      const isDone=st.correct>=3;
+      const isActive=currentLesson?.id===lesson.id;
+      const isRec=!isDone && idx===stage.lessons.findIndex(l=>(lessonStats[l.id]?.correct||0)<3);
+      const statTxt=(st.correct+st.wrong>0)?`${st.correct}✓${st.wrong}✗`:'';
+      const statCls=st.wrong>st.correct?'bad':(st.correct>0?'good':'');
+      const el=document.createElement('div');
+      el.className=`lesson${isActive?' active':''}${isRec?' recommend':''}`;
+      el.innerHTML=`
+        <span class="l-icon">${isDone?'✅':isRec?'🔥':lesson.emoji}</span>
+        <span class="l-name">${lesson.name}</span>
+        ${isRec?'<span class="rec-badge">추천</span>':''}
+        ${statTxt?`<span class="l-stat ${statCls}">${statTxt}</span>`:''}`;
+      el.onclick=()=>selectLesson(stage,lesson);
+      lessonsEl.appendChild(el);
+    });
+  });
+}
+
+function toggleStage(id){
+  openStages.has(id)?openStages.delete(id):openStages.add(id);
+  buildSidebar();
+}
+
+function selectLesson(stage,lesson){
+  currentLesson={...lesson,stageName:stage.name};
+  buildSidebar(); updateCurrBar(); saveData();
+  quickSend(`${stage.name} > ${lesson.name} 단원 시작할게. 중학교 기초 개념부터 설명해줘.`);
+}
+
+function setFreeMode(){
+  currentLesson=null;
+  buildSidebar(); updateCurrBar(); saveData();
+}
+
+function updateCurrBar(){
+  const n=document.getElementById('currName');
+  const s=document.getElementById('currStat');
+  if(currentLesson){
+    n.textContent=`${currentLesson.stageName} › ${currentLesson.name}`;
+    const st=lessonStats[currentLesson.id]||{correct:0,wrong:0};
+    s.textContent=(st.correct+st.wrong>0)?`${st.correct}✓ ${st.wrong}✗`:'';
+  } else {
+    n.textContent='자유 질문 모드 — 뭐든지 물어봐!';
+    s.textContent='';
+  }
+}
+
+// ══ TABS ══
+function switchTab(el,tab){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('wrongPanel').classList.toggle('visible',tab==='wrongnote');
+  if(tab==='wrongnote') renderWrongNote();
+  if(tab==='problem') quickSend('지금 내 수준에 맞는 문제 하나 내줘.');
+  if(tab==='diagnose') quickSend('진단 테스트 시작해줘. 첫 문제부터 하나씩 내줘.');
+}
+
+// ══ WRONG NOTE ══
+function renderWrongNote(){
+  const list=document.getElementById('wrongList');
+  if(!wrongNote.length){list.innerHTML='<div class="empty-wrong">아직 오답이 없어요!</div>';return;}
+  const eL={A:'개념모름',B:'적용오류',C:'계산실수',D:'문제이해오류'};
+  list.innerHTML=wrongNote.slice().reverse().map((w,i)=>`
+    <div class="wrong-item" onclick="retryWrong(${wrongNote.length-1-i})">
+      <div class="wi-tag">${w.topic}</div>
+      <div style="flex:1">
+        <div class="wi-text">${w.question}</div>
+        <div class="wi-type">🌱 ${w.root} · ${eL[w.error]||w.error}</div>
+      </div>
+      <div class="wi-retry">↩ 다시</div>
+    </div>`).join('');
+}
+
+function retryWrong(idx){
+  const w=wrongNote[idx];
+  document.querySelectorAll('.tab')[0].click();
+  quickSend(`오답노트 복습: "${w.question}" 같은 유형 문제 내줘.`);
+}
+
+// ══ SCORES ══
+function updateScores(){
+  document.getElementById('cntC').textContent=correct;
+  document.getElementById('cntW').textContent=wrong;
+  document.getElementById('cntS').textContent=streak;
+  document.getElementById('cntDays').textContent=totalDays;
+}
+
+function parseAndClean(text){
+  let t=text;
+  const wm=t.match(/%%WRONG%%({.*?})%%END%%/s);
+  if(wm){
+    try{
+      const d=JSON.parse(wm[1]);
+      wrongNote.push(d); wrong++; streak=0;
+      if(currentLesson){
+        if(!lessonStats[currentLesson.id]) lessonStats[currentLesson.id]={correct:0,wrong:0};
+        lessonStats[currentLesson.id].wrong++;
+      }
+    }catch(e){}
+    t=t.replace(/%%WRONG%%.*?%%END%%/s,'').trim();
+  }
+  if(t.includes('%%CORRECT%%')){
+    correct++; streak++;
+    if(currentLesson){
+      if(!lessonStats[currentLesson.id]) lessonStats[currentLesson.id]={correct:0,wrong:0};
+      lessonStats[currentLesson.id].correct++;
+    }
+    t=t.replace(/%%CORRECT%%/g,'').trim();
+  }
+  updateScores(); updateCurrBar(); buildSidebar();
+  saveData();
+  if(document.getElementById('wrongPanel').classList.contains('visible')) renderWrongNote();
+  return t;
+}
+
+// ══ IMAGE ══
+function handleImg(event){
+  const file=event.target.files[0];
+  if(!file) return;
+  if(!file.type.startsWith('image/')){alert('이미지 파일만 가능해요!');return;}
+  if(file.size>5*1024*1024){alert('5MB 이하만 가능해요!');return;}
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const url=e.target.result;
+    pendingImage={base64:url.split(',')[1],mediaType:file.type,name:file.name,dataUrl:url};
+    document.getElementById('imgPreviewEl').src=url;
+    document.getElementById('imgFileName').textContent=file.name;
+    document.getElementById('imgPreviewWrap').classList.add('visible');
+    document.getElementById('imgBtn').classList.add('has-img');
+    document.getElementById('userInput').placeholder='사진에 설명 추가하거나 바로 전송해도 돼!';
+    document.getElementById('userInput').focus();
+  };
+  reader.readAsDataURL(file);
+  event.target.value='';
+}
+
+function removeImage(){
+  pendingImage=null;
+  document.getElementById('imgPreviewWrap').classList.remove('visible');
+  document.getElementById('imgBtn').classList.remove('has-img');
+  document.getElementById('imgPreviewEl').src='';
+  document.getElementById('userInput').placeholder='모르는 개념·틀린 문제 입력, 또는 📷 사진 올려봐! (Enter: 전송 · Shift+Enter: 줄바꿈)';
+}
+
+// ══ CHAT ══
+function removeWelcome(){ const el=document.getElementById('welcomeEl'); if(el) el.remove(); }
+
+function formatBubble(text){
+  text=text.replace(/\[오개념 뿌리:(.*?)\]/g,'<span class="oclass">🌱 오개념 뿌리:$1</span>');
+  text=text.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>');
+  text=text.replace(/`([^`]+)`/g,'<span class="formula">$1</span>');
+  text=text.replace(/\n/g,'<br>');
+  return text;
+}
+
+function appendMsg(role,rawText,imgUrl,imgCap){
+  removeWelcome();
+  const text=role==='ai'?parseAndClean(rawText):rawText;
+  const box=document.getElementById('chatBox');
+  const row=document.createElement('div');
+  row.className=`msg-row ${role}`;
+  const av=document.createElement('div');
+  av.className=`avatar ${role}`;
+  av.textContent=role==='ai'?'🔬':'🙋';
+  const bub=document.createElement('div');
+  bub.className=`bubble ${role}`;
+  if(imgUrl){
+    bub.innerHTML=`<img class="bubble-img" src="${imgUrl}" alt="풀이사진" onclick="this.style.maxWidth=this.style.maxWidth?'':'100%'">` +
+      (imgCap?`<div>${imgCap}</div>`:'<div style="font-size:11px;opacity:0.6">📷 풀이 사진</div>');
+  } else {
+    bub.innerHTML=formatBubble(text);
+  }
+  row.appendChild(av); row.appendChild(bub);
+  box.appendChild(row);
+  box.scrollTop=box.scrollHeight;
+}
+
+function showTyping(){
+  removeWelcome();
+  const box=document.getElementById('chatBox');
+  const row=document.createElement('div');
+  row.className='typing-row'; row.id='typingRow';
+  row.innerHTML=`<div class="avatar ai">🔬</div>
+    <div class="typing-bub"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>`;
+  box.appendChild(row); box.scrollTop=box.scrollHeight;
+}
+function removeTyping(){ const t=document.getElementById('typingRow'); if(t) t.remove(); }
+
+// ══ INPUT ══
+function autoResize(el){ el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,110)+'px'; }
+function handleKey(e){ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg();} }
+function quickSend(text){ document.getElementById('userInput').value=text; sendMsg(); }
+
+// ══ API ══
+async function sendMsg(){
+  const input=document.getElementById('userInput');
+  const btn=document.getElementById('sendBtn');
+  const text=input.value.trim();
+  const hasImg=!!pendingImage;
+  if(!text&&!hasImg) return;
+
+  if(hasImg){ appendMsg('user','',pendingImage.dataUrl,text); }
+  else { appendMsg('user',text); }
+
+  const userContent=hasImg
+    ?[{type:'image',source:{type:'base64',media_type:pendingImage.mediaType,data:pendingImage.base64}},
+      {type:'text',text:text||'이 풀이 사진 오답 분석해줘. 틀린 곳과 오개념 뿌리 찾아줘.'}]
+    :text;
+  history.push({role:'user',content:userContent});
+
+  input.value=''; input.style.height='auto';
+  if(hasImg) removeImage();
+  btn.disabled=true; showTyping();
+
+  try{
+    const messages=history.map(m=>({
+      role:m.role==='ai'?'assistant':'user',
+      content:m.content
+    }));
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:1000,
+        system:buildSystem(),
+        messages
+      })
+    });
+    const data=await res.json();
+    const reply=data.content?.[0]?.text||'잠깐 오류났어. 다시 눌러봐! 🔄';
+    removeTyping();
+    appendMsg('ai',reply);
+    history.push({role:'ai',content:reply});
+  }catch(err){
+    removeTyping();
+    appendMsg('ai','연결이 끊겼어. 다시 시도해봐! 🔄');
+    history.pop();
+  }
+  btn.disabled=false; input.focus();
+}
+
+// ══ INIT ══
+window.addEventListener('load',async()=>{
+  await loadData(); // Firebase + localStorage에서 복원
+  buildSidebar(); updateCurrBar(); updateScores();
+  showTyping();
+
+  // 복귀 여부에 따라 다른 인사
+  const isReturning = correct+wrong > 0;
+  const weakLesson  = Object.entries(lessonStats).sort((a,b)=>b[1].wrong-a[1].wrong)[0];
+  let weakInfo='';
+  if(weakLesson && lessonStats[weakLesson[0]].wrong>0){
+    // 단원명 찾기
+    for(const stage of CURRICULUM){
+      const l=stage.lessons.find(x=>x.id===weakLesson[0]);
+      if(l){ weakInfo=`${l.name}(오답 ${lessonStats[weakLesson[0]].wrong}개)`; break; }
+    }
+  }
+
+  const greeting = isReturning
+    ? `다시 왔구나! 반가워 😊 지금까지 ${correct+wrong}문제 풀었고, 맞음 ${correct}개 틀림 ${wrong}개야.${weakInfo?` 가장 많이 틀린 단원은 ${weakInfo}이야. 오늘 여기 집중해볼까?`:' 오늘도 같이 열심히 해보자!'}`
+    : '안녕! 자기소개 2줄, 이 앱 어떻게 쓰면 되는지 1줄만 알려줘.';
+
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:220,
+        system:buildSystem(),
+        messages:[{role:'user',content:greeting}]
+      })
+    });
+    const data=await res.json();
+    removeTyping();
+    const reply=data.content?.[0]?.text||'안녕! 수학 과외 선생님이야. 왼쪽 단원 선택하거나 바로 질문해봐!';
+    removeWelcome();
+    appendMsg('ai',reply);
+    history.push({role:'ai',content:reply});
+  }catch{removeTyping();}
+});
+</script>
+</body>
+</html>
